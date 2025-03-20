@@ -10,7 +10,7 @@ Part 1: Crafting a Modular and User-Friendly UI
 
 Part 2: Decoding Vehicular Data and Integrating with CAN Hardware
 
-
+Past GitHub Link: https://github.com/CJDAmico/CommsOnWheels
 
 Content from the Mentors and other Research/References:
 
