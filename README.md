@@ -7,6 +7,7 @@ Project Description:
 Project CANnonball will be an intuitive application designed to decode and display critical data from heavy-duty vehicles. With a dynamic, user-friendly interface built using PQt, you’ll easily interpret and manage complex CAN data to keepyour vehicle running smoothly.
 
 Part 1: Crafting a Modular and User-Friendly UI
+
 Part 2: Decoding Vehicular Data and Integrating with CAN Hardware
 
 
