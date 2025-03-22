@@ -50,4 +50,5 @@ This project is under active development. The CAN visualization tool is function
 - Adding message filtering capabilities
 - Improving signal visualization options
 - Enhancing message sending interface
-- Supporting additional CAN hardware options
+- Improving UI
+- Integrating functionality for DBC modification
