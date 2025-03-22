@@ -1,6 +1,8 @@
 # CommsOnWheels Repository
 
 A repository for vehicle communications tools and CAN bus analysis utilities, focusing on CAN bus monitoring and J1939 protocol implementations.
+Team Members: Rohan Roy, Soumya Kataria, Bailey Kau, Jenil Makwana, Yilin Chen
+
 
 ## Repository Structure
 
