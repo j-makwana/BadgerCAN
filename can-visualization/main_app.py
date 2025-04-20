@@ -1,6 +1,7 @@
 import sys
 import argparse
 import logging
+import os
 from PyQt5.QtWidgets import (QApplication, QMainWindow, QTabWidget, QWidget, QVBoxLayout,
                            QHBoxLayout, QPushButton, QLabel, QFileDialog, QMessageBox,
                            QSplitter, QTreeWidget, QTreeWidgetItem, QComboBox, QCheckBox)
@@ -79,54 +80,149 @@ class CANVisApp(QMainWindow):
         self.setCentralWidget(self.central_widget)
         
         main_layout = QVBoxLayout(self.central_widget)
+        main_layout.setSpacing(2)  # Reduced from 5
+        main_layout.setContentsMargins(2, 2, 2, 2)  # Reduced from 5
         
         # Create control bar
-        control_layout = QHBoxLayout()
+        control_widget = QWidget()
+        control_widget.setFixedHeight(32)  # Fixed height for the control bar
+        control_layout = QHBoxLayout(control_widget)
+        control_layout.setSpacing(4)  # Reduced from 8
+        control_layout.setContentsMargins(4, 0, 4, 0)  # Reduced vertical margins
         
         # DBC file controls
-        control_layout.addWidget(QLabel("DBC File:"))
-        self.dbc_path_label = QLabel("No DBC file loaded")
-        control_layout.addWidget(self.dbc_path_label)
+        dbc_group = QWidget()
+        dbc_layout = QHBoxLayout(dbc_group)
+        dbc_layout.setContentsMargins(0, 0, 0, 0)
+        dbc_layout.setSpacing(4)
+        
+        dbc_layout.addWidget(QLabel("DBC File:"))
+        
+        self.dbc_path_label = QLabel("No DBC file loaded (try j1939_example.dbc)")
+        self.dbc_path_label.setStyleSheet("color: #666;")
+        dbc_layout.addWidget(self.dbc_path_label)
         
         self.load_dbc_button = QPushButton("Load DBC")
+        self.load_dbc_button.setFixedHeight(24)  # Fixed height for buttons
+        self.load_dbc_button.setStyleSheet("""
+            QPushButton {
+                background-color: #4a90e2;
+                color: white;
+                border: none;
+                padding: 0 8px;
+                border-radius: 2px;
+            }
+            QPushButton:hover { background-color: #357abd; }
+            QPushButton:pressed { background-color: #2d6da3; }
+        """)
         self.load_dbc_button.clicked.connect(self.load_dbc_file)
-        control_layout.addWidget(self.load_dbc_button)
+        dbc_layout.addWidget(self.load_dbc_button)
         
-        # Use PCAN like decode_pcan.py checkbox
-        self.direct_pcan_checkbox = QCheckBox("Use Direct PCAN Interface")
+        control_layout.addWidget(dbc_group)
+        
+        # Use PCAN checkbox
+        checkbox_container = QWidget()
+        checkbox_layout = QHBoxLayout(checkbox_container)
+        checkbox_layout.setContentsMargins(0, 0, 12, 0)  # Add right margin of 12px
+        checkbox_layout.setSpacing(0)
+        
+        self.direct_pcan_checkbox = QCheckBox("Use Direct PCAN")
         self.direct_pcan_checkbox.setChecked(self.args.direct_pcan)
-        control_layout.addWidget(self.direct_pcan_checkbox)
+        self.direct_pcan_checkbox.setFixedHeight(24)  # Fixed height for checkbox
+        checkbox_layout.addWidget(self.direct_pcan_checkbox)
         
-        # CAN interface controls (only shown when not using direct PCAN)
+        control_layout.addWidget(checkbox_container)
+        
+        # CAN interface controls
         self.interface_widget = QWidget()
         interface_layout = QHBoxLayout(self.interface_widget)
         interface_layout.setContentsMargins(0, 0, 0, 0)
+        interface_layout.setSpacing(4)
         
         interface_layout.addWidget(QLabel("Sender:"))
         self.sender_combo = QComboBox()
+        self.sender_combo.setFixedHeight(24)  # Fixed height for comboboxes
+        self.sender_combo.setStyleSheet("""
+            QComboBox {
+                padding: 1px 4px;
+                border: 1px solid #ccc;
+                border-radius: 2px;
+                min-width: 120px;
+            }
+        """)
         interface_layout.addWidget(self.sender_combo)
         
         interface_layout.addWidget(QLabel("Receiver:"))
         self.receiver_combo = QComboBox()
+        self.receiver_combo.setFixedHeight(24)  # Fixed height for comboboxes
+        self.receiver_combo.setStyleSheet(self.sender_combo.styleSheet())
         interface_layout.addWidget(self.receiver_combo)
         
         control_layout.addWidget(self.interface_widget)
         
-        # Start/Stop buttons
+        # Action buttons
+        button_group = QWidget()
+        button_layout = QHBoxLayout(button_group)
+        button_layout.setContentsMargins(0, 0, 0, 0)
+        button_layout.setSpacing(4)
+        
         self.start_button = QPushButton("Start")
+        self.start_button.setFixedHeight(24)  # Fixed height for buttons
+        self.start_button.setStyleSheet("""
+            QPushButton {
+                background-color: #4CAF50;
+                color: white;
+                border: none;
+                padding: 0 8px;
+                border-radius: 2px;
+                min-width: 60px;
+            }
+            QPushButton:hover { background-color: #45a049; }
+            QPushButton:pressed { background-color: #3d8b40; }
+            QPushButton:disabled { background-color: #cccccc; }
+        """)
         self.start_button.clicked.connect(self.start_can)
-        control_layout.addWidget(self.start_button)
+        button_layout.addWidget(self.start_button)
         
         self.stop_button = QPushButton("Stop")
+        self.stop_button.setFixedHeight(24)  # Fixed height for buttons
+        self.stop_button.setStyleSheet("""
+            QPushButton {
+                background-color: #f44336;
+                color: white;
+                border: none;
+                padding: 0 8px;
+                border-radius: 2px;
+                min-width: 60px;
+            }
+            QPushButton:hover { background-color: #da190b; }
+            QPushButton:pressed { background-color: #ba000d; }
+            QPushButton:disabled { background-color: #cccccc; }
+        """)
         self.stop_button.clicked.connect(self.stop_can)
         self.stop_button.setEnabled(False)
-        control_layout.addWidget(self.stop_button)
+        button_layout.addWidget(self.stop_button)
 
         self.send_test_button = QPushButton("Send Test Messages")
+        self.send_test_button.setFixedHeight(24)  # Fixed height for buttons
+        self.send_test_button.setStyleSheet("""
+            QPushButton {
+                background-color: #2196F3;
+                color: white;
+                border: none;
+                padding: 0 8px;
+                border-radius: 2px;
+            }
+            QPushButton:hover { background-color: #0b7dda; }
+            QPushButton:pressed { background-color: #0a6fc2; }
+            QPushButton:disabled { background-color: #cccccc; }
+        """)
         self.send_test_button.clicked.connect(self.send_test_messages)
-        control_layout.addWidget(self.send_test_button)
+        button_layout.addWidget(self.send_test_button)
         
-        main_layout.addLayout(control_layout)
+        control_layout.addWidget(button_group)
+        
+        main_layout.addWidget(control_widget)
         
         # Use dashboard view or traditional view based on args
         if self.args.dashboard:
@@ -136,6 +232,14 @@ class CANVisApp(QMainWindow):
         
         # Status bar
         self.status_bar = self.statusBar()
+        self.status_bar.setFixedHeight(20)  # Fixed height for status bar
+        self.status_bar.setStyleSheet("""
+            QStatusBar {
+                background-color: #f5f5f5;
+                color: #333;
+                padding: 0 4px;
+            }
+        """)
         self.status_bar.showMessage("Ready")
         
         # Update UI based on direct PCAN checkbox
@@ -146,17 +250,60 @@ class CANVisApp(QMainWindow):
         """Initialize the traditional splitview UI"""
         # Create main splitter
         self.splitter = QSplitter(Qt.Horizontal)
+        self.splitter.setStyleSheet("""
+            QSplitter::handle {
+                background-color: #ddd;
+                width: 1px;
+            }
+        """)
         
         # Left panel: Message tree
         self.message_tree = QTreeWidget()
         self.message_tree.setHeaderLabels(["Messages"])
+        self.message_tree.setStyleSheet("""
+            QTreeWidget {
+                border: 1px solid #ddd;
+            }
+            QTreeWidget::item {
+                padding: 2px;
+            }
+            QTreeWidget::item:selected {
+                background-color: #e3f2fd;
+                color: #1976d2;
+            }
+        """)
         self.splitter.addWidget(self.message_tree)
         
         # Right panel: Signal display tabs
         self.tabs = QTabWidget()
+        self.tabs.setStyleSheet("""
+            QTabWidget::pane {
+                border: 1px solid #ddd;
+            }
+            QTabBar::tab {
+                background-color: #f5f5f5;
+                border: 1px solid #ddd;
+                padding: 4px 8px;
+            }
+            QTabBar::tab:selected {
+                background-color: white;
+            }
+        """)
         
         # Table tab
         self.table_widget = SignalTableWidget()
+        self.table_widget.setStyleSheet("""
+            QTableWidget {
+                border: none;
+                gridline-color: #f0f0f0;
+            }
+            QHeaderView::section {
+                background-color: #f5f5f5;
+                padding: 4px;
+                border: none;
+                border-bottom: 1px solid #ddd;
+            }
+        """)
         self.tabs.addTab(self.table_widget, "Signal Table")
         
         # Plot tab
@@ -209,9 +356,19 @@ class CANVisApp(QMainWindow):
         # Create DBC parser
         self.dbc_parser = DBCParser()
     
-        # Load DBC file if specified
+        # Load DBC file if specified in args
         if self.args.dbc:
             self.load_dbc_file(self.args.dbc)
+        else:
+            # Check for example DBC file
+            example_dbc = "j1939_example.dbc"
+            if os.path.exists(example_dbc):
+                self.logger.info(f"Found example DBC file: {example_dbc}")
+                self.load_dbc_file(example_dbc)
+            else:
+                self.logger.info("No DBC file loaded. Please load a DBC file to begin.")
+                self.dbc_path_label.setText("No DBC file loaded (try j1939_example.dbc)")
+                self.dbc_path_label.setStyleSheet("color: gray;")
     
         # Create message processor for standard interface
         self.message_processor = MessageProcessor(self.can_interface, self.dbc_parser)
