@@ -1,7 +1,6 @@
 import sys
 import argparse
 import logging
-import os
 from PyQt5.QtWidgets import (QApplication, QMainWindow, QTabWidget, QWidget, QVBoxLayout,
                            QHBoxLayout, QPushButton, QLabel, QFileDialog, QMessageBox,
                            QSplitter, QTreeWidget, QTreeWidgetItem, QComboBox, QCheckBox)
@@ -18,31 +17,43 @@ import time
 
 # Import the new dashboard view
 from dashboard_view import DashboardView
+from configurable_dashboard_view import ConfigurableDashboardView
+import sys
+print(f"Running python version: {sys.version}")
 
 
-class CANVisApp(QMainWindow):
+class CANVisApp(QMainWindow): 
     """Main application window for CAN data visualization"""
     def __init__(self):
         super().__init__()
-    
+
+
+        
         # Setup logging
         self.setup_logging()
         self.logger = logging.getLogger("CANVisApp")
         self.logger.info("Starting CAN visualization application")
-    
+
+
+
         # Parse command line arguments
         self.args = self.parse_arguments()
-    
+
         # Initialize UI components
         self.init_ui()
-    
+
         # Initialize backend components
         self.init_components()
     
+        # Initialize dashboard if in dashboard mode
+        # MOVE THIS LINE FROM init_ui TO HERE
+        if self.args.dashboard and hasattr(self, 'dashboard_view'):
+            self.dashboard_view.init_web_channel(self.message_processor, self.dbc_parser)
+
         # Load settings if the method exists
         if hasattr(self, 'load_settings'):
             self.load_settings()
-    
+
         # Show the window
         self.show()
     
@@ -80,149 +91,56 @@ class CANVisApp(QMainWindow):
         self.setCentralWidget(self.central_widget)
         
         main_layout = QVBoxLayout(self.central_widget)
-        main_layout.setSpacing(2)  # Reduced from 5
-        main_layout.setContentsMargins(2, 2, 2, 2)  # Reduced from 5
-        
+        main_layout.setContentsMargins(0, 0, 0, 0)
+        main_layout.setSpacing(0)
         # Create control bar
-        control_widget = QWidget()
-        control_widget.setFixedHeight(32)  # Fixed height for the control bar
-        control_layout = QHBoxLayout(control_widget)
-        control_layout.setSpacing(4)  # Reduced from 8
-        control_layout.setContentsMargins(4, 0, 4, 0)  # Reduced vertical margins
-        
+        control_layout = QHBoxLayout()
+        control_layout.setContentsMargins(5, 5, 5, 5)
+        control_layout.setSpacing(5)
         # DBC file controls
-        dbc_group = QWidget()
-        dbc_layout = QHBoxLayout(dbc_group)
-        dbc_layout.setContentsMargins(0, 0, 0, 0)
-        dbc_layout.setSpacing(4)
-        
-        dbc_layout.addWidget(QLabel("DBC File:"))
-        
-        self.dbc_path_label = QLabel("No DBC file loaded (try j1939_example.dbc)")
-        self.dbc_path_label.setStyleSheet("color: #666;")
-        dbc_layout.addWidget(self.dbc_path_label)
+        control_layout.addWidget(QLabel("DBC File:"))
+        self.dbc_path_label = QLabel("No DBC file loaded")
+        control_layout.addWidget(self.dbc_path_label)
         
         self.load_dbc_button = QPushButton("Load DBC")
-        self.load_dbc_button.setFixedHeight(24)  # Fixed height for buttons
-        self.load_dbc_button.setStyleSheet("""
-            QPushButton {
-                background-color: #4a90e2;
-                color: white;
-                border: none;
-                padding: 0 8px;
-                border-radius: 2px;
-            }
-            QPushButton:hover { background-color: #357abd; }
-            QPushButton:pressed { background-color: #2d6da3; }
-        """)
         self.load_dbc_button.clicked.connect(self.load_dbc_file)
-        dbc_layout.addWidget(self.load_dbc_button)
+        control_layout.addWidget(self.load_dbc_button)
         
-        control_layout.addWidget(dbc_group)
-        
-        # Use PCAN checkbox
-        checkbox_container = QWidget()
-        checkbox_layout = QHBoxLayout(checkbox_container)
-        checkbox_layout.setContentsMargins(0, 0, 12, 0)  # Add right margin of 12px
-        checkbox_layout.setSpacing(0)
-        
-        self.direct_pcan_checkbox = QCheckBox("Use Direct PCAN")
+        # Use PCAN like decode_pcan.py checkbox
+        self.direct_pcan_checkbox = QCheckBox("Use Direct PCAN Interface")
         self.direct_pcan_checkbox.setChecked(self.args.direct_pcan)
-        self.direct_pcan_checkbox.setFixedHeight(24)  # Fixed height for checkbox
-        checkbox_layout.addWidget(self.direct_pcan_checkbox)
+        control_layout.addWidget(self.direct_pcan_checkbox)
         
-        control_layout.addWidget(checkbox_container)
-        
-        # CAN interface controls
+        # CAN interface controls (only shown when not using direct PCAN)
         self.interface_widget = QWidget()
         interface_layout = QHBoxLayout(self.interface_widget)
         interface_layout.setContentsMargins(0, 0, 0, 0)
-        interface_layout.setSpacing(4)
         
         interface_layout.addWidget(QLabel("Sender:"))
         self.sender_combo = QComboBox()
-        self.sender_combo.setFixedHeight(24)  # Fixed height for comboboxes
-        self.sender_combo.setStyleSheet("""
-            QComboBox {
-                padding: 1px 4px;
-                border: 1px solid #ccc;
-                border-radius: 2px;
-                min-width: 120px;
-            }
-        """)
         interface_layout.addWidget(self.sender_combo)
         
         interface_layout.addWidget(QLabel("Receiver:"))
         self.receiver_combo = QComboBox()
-        self.receiver_combo.setFixedHeight(24)  # Fixed height for comboboxes
-        self.receiver_combo.setStyleSheet(self.sender_combo.styleSheet())
         interface_layout.addWidget(self.receiver_combo)
         
         control_layout.addWidget(self.interface_widget)
         
-        # Action buttons
-        button_group = QWidget()
-        button_layout = QHBoxLayout(button_group)
-        button_layout.setContentsMargins(0, 0, 0, 0)
-        button_layout.setSpacing(4)
-        
+        # Start/Stop buttons
         self.start_button = QPushButton("Start")
-        self.start_button.setFixedHeight(24)  # Fixed height for buttons
-        self.start_button.setStyleSheet("""
-            QPushButton {
-                background-color: #4CAF50;
-                color: white;
-                border: none;
-                padding: 0 8px;
-                border-radius: 2px;
-                min-width: 60px;
-            }
-            QPushButton:hover { background-color: #45a049; }
-            QPushButton:pressed { background-color: #3d8b40; }
-            QPushButton:disabled { background-color: #cccccc; }
-        """)
         self.start_button.clicked.connect(self.start_can)
-        button_layout.addWidget(self.start_button)
+        control_layout.addWidget(self.start_button)
         
         self.stop_button = QPushButton("Stop")
-        self.stop_button.setFixedHeight(24)  # Fixed height for buttons
-        self.stop_button.setStyleSheet("""
-            QPushButton {
-                background-color: #f44336;
-                color: white;
-                border: none;
-                padding: 0 8px;
-                border-radius: 2px;
-                min-width: 60px;
-            }
-            QPushButton:hover { background-color: #da190b; }
-            QPushButton:pressed { background-color: #ba000d; }
-            QPushButton:disabled { background-color: #cccccc; }
-        """)
         self.stop_button.clicked.connect(self.stop_can)
         self.stop_button.setEnabled(False)
-        button_layout.addWidget(self.stop_button)
+        control_layout.addWidget(self.stop_button)
 
         self.send_test_button = QPushButton("Send Test Messages")
-        self.send_test_button.setFixedHeight(24)  # Fixed height for buttons
-        self.send_test_button.setStyleSheet("""
-            QPushButton {
-                background-color: #2196F3;
-                color: white;
-                border: none;
-                padding: 0 8px;
-                border-radius: 2px;
-            }
-            QPushButton:hover { background-color: #0b7dda; }
-            QPushButton:pressed { background-color: #0a6fc2; }
-            QPushButton:disabled { background-color: #cccccc; }
-        """)
         self.send_test_button.clicked.connect(self.send_test_messages)
-        button_layout.addWidget(self.send_test_button)
+        control_layout.addWidget(self.send_test_button)
         
-        control_layout.addWidget(button_group)
-        
-        main_layout.addWidget(control_widget)
+        main_layout.addLayout(control_layout)
         
         # Use dashboard view or traditional view based on args
         if self.args.dashboard:
@@ -232,14 +150,6 @@ class CANVisApp(QMainWindow):
         
         # Status bar
         self.status_bar = self.statusBar()
-        self.status_bar.setFixedHeight(20)  # Fixed height for status bar
-        self.status_bar.setStyleSheet("""
-            QStatusBar {
-                background-color: #f5f5f5;
-                color: #333;
-                padding: 0 4px;
-            }
-        """)
         self.status_bar.showMessage("Ready")
         
         # Update UI based on direct PCAN checkbox
@@ -250,60 +160,17 @@ class CANVisApp(QMainWindow):
         """Initialize the traditional splitview UI"""
         # Create main splitter
         self.splitter = QSplitter(Qt.Horizontal)
-        self.splitter.setStyleSheet("""
-            QSplitter::handle {
-                background-color: #ddd;
-                width: 1px;
-            }
-        """)
         
         # Left panel: Message tree
         self.message_tree = QTreeWidget()
         self.message_tree.setHeaderLabels(["Messages"])
-        self.message_tree.setStyleSheet("""
-            QTreeWidget {
-                border: 1px solid #ddd;
-            }
-            QTreeWidget::item {
-                padding: 2px;
-            }
-            QTreeWidget::item:selected {
-                background-color: #e3f2fd;
-                color: #1976d2;
-            }
-        """)
         self.splitter.addWidget(self.message_tree)
         
         # Right panel: Signal display tabs
         self.tabs = QTabWidget()
-        self.tabs.setStyleSheet("""
-            QTabWidget::pane {
-                border: 1px solid #ddd;
-            }
-            QTabBar::tab {
-                background-color: #f5f5f5;
-                border: 1px solid #ddd;
-                padding: 4px 8px;
-            }
-            QTabBar::tab:selected {
-                background-color: white;
-            }
-        """)
         
         # Table tab
         self.table_widget = SignalTableWidget()
-        self.table_widget.setStyleSheet("""
-            QTableWidget {
-                border: none;
-                gridline-color: #f0f0f0;
-            }
-            QHeaderView::section {
-                background-color: #f5f5f5;
-                padding: 4px;
-                border: none;
-                border-bottom: 1px solid #ddd;
-            }
-        """)
         self.tabs.addTab(self.table_widget, "Signal Table")
         
         # Plot tab
@@ -317,9 +184,11 @@ class CANVisApp(QMainWindow):
     
     def _init_dashboard_ui(self, main_layout):
         """Initialize the modern dashboard UI"""
-        # Create the dashboard view
-        self.dashboard_view = DashboardView()
-        main_layout.addWidget(self.dashboard_view)
+        # Create the configurable dashboard view
+        self.dashboard_view = ConfigurableDashboardView()
+        main_layout.addWidget(self.dashboard_view, 1)
+        # In ConfigurableDashboardView.init_ui
+    
     
     def update_interface_controls(self):
         """Show/hide interface controls based on direct PCAN checkbox"""
@@ -356,19 +225,9 @@ class CANVisApp(QMainWindow):
         # Create DBC parser
         self.dbc_parser = DBCParser()
     
-        # Load DBC file if specified in args
+        # Load DBC file if specified
         if self.args.dbc:
             self.load_dbc_file(self.args.dbc)
-        else:
-            # Check for example DBC file
-            example_dbc = "j1939_example.dbc"
-            if os.path.exists(example_dbc):
-                self.logger.info(f"Found example DBC file: {example_dbc}")
-                self.load_dbc_file(example_dbc)
-            else:
-                self.logger.info("No DBC file loaded. Please load a DBC file to begin.")
-                self.dbc_path_label.setText("No DBC file loaded (try j1939_example.dbc)")
-                self.dbc_path_label.setStyleSheet("color: gray;")
     
         # Create message processor for standard interface
         self.message_processor = MessageProcessor(self.can_interface, self.dbc_parser)
