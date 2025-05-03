@@ -20,7 +20,6 @@ CAN Visualization is a tool for monitoring, analyzing, and visualizing CAN bus d
 - Simulation mode for testing without hardware
 - Direct PCAN hardware interface support
 
-![Dashboard Example](dashboard_example.png)
 
 #### Features
 
@@ -39,11 +38,11 @@ CAN Visualization is a tool for monitoring, analyzing, and visualizing CAN bus d
   - Signal trend generation and realistic simulation
   - Message filtering and sorting
 
-- **User Experience**:
+- **User Interface**:
   - Qt-based graphical interface
   - Configurable dashboard widgets
   - Signal selection dialog with filtering
-  - Profile saving/loading for dashboard configurations
+  - Profile saving/loading for dashboard configurations[in-progress]
 
 #### Requirements
 
